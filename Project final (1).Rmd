@@ -1,0 +1,939 @@
+---
+title: "CONSUMER BEHAVIOUR TOWARDS E-COMMERCE"
+author: "Quadri Popoola"
+date: "2023-11-29"
+output:
+  pdf_document: 
+   latex_engine: pdflatex
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,warning = FALSE,message = FALSE)
+```
+# INTRODUCTION
+
+The landscape of commerce has undergone a profound evolution, with the advent of e-commerce platforms fundamentally reshaping consumer interactions with goods and services. The rise of digital marketplaces has not only revolutionized the way individuals shop but has also redefined the very essence of consumer behavior.
+
+The impact of electronic commerce(e-commerce) on procurement, shopping, business collaboration, and customer services as well as on delivery of various services is so dramatic that almost every organization is affected. Online Shopping is changing all business functional areas and their important tasks, ranging from advertising to paying bills.
+
+In today's highly competitive e-commerce landscape, understanding customer behavior and preferences is paramount for sustaining business growth and fostering customer loyalty.Hence the reason for choosing this topic.
+
+The objectives of this study are:
+
+1. understand what factors influences total money spent on online market.
+
+2. Predict total money that would be spent given the predictors in the dataset
+
+3. Compare different predictive algorithm to identify the best in predicting total money spent. 
+
+4. See if there is a relationship between the categorical variables in the dataset.
+
+5. Perform a discount optimization
+
+6. How age and gender influences satisfaction levels with e-commerce.
+
+
+# DATA
+
+The data considered is the e-commerce dataset from Kaggle. This dataset consists of 350 observations with 11 variables. The structure of the dataset is listed below. The dataset has two missing values which was removed(listwise deletion),variables renamed and the categorical variables were factored.
+
+```{r echo=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(GGally)
+library(tidyverse)
+library(randomForest)#For randomforest algorithm
+library(caret)  # For cross-validation
+library(class)  # For KNN algorithm
+
+```
+
+```{r}
+E_commerce_Customer_Behavior <- read_csv("archive (1)/E-commerce Customer Behavior.csv",show_col_types = FALSE)
+#removing missing data
+E_commerce_Customer_Behavior<-na.omit(E_commerce_Customer_Behavior)
+E_commerce_Customer_Behavior$customer_id<-E_commerce_Customer_Behavior$`Customer ID`
+E_commerce_Customer_Behavior$membership_type<-as.factor(E_commerce_Customer_Behavior$`Membership Type`)
+E_commerce_Customer_Behavior$total_spend<-E_commerce_Customer_Behavior$`Total Spend`
+E_commerce_Customer_Behavior$items_purchased<-E_commerce_Customer_Behavior$`Items Purchased`
+E_commerce_Customer_Behavior$average_rating<-E_commerce_Customer_Behavior$`Average Rating`
+E_commerce_Customer_Behavior$discount_applied<-as.factor(E_commerce_Customer_Behavior$`Discount Applied`)
+E_commerce_Customer_Behavior$days_since_last_purchase<-E_commerce_Customer_Behavior$`Days Since Last Purchase`
+E_commerce_Customer_Behavior$satisfaction_level<-as.factor(E_commerce_Customer_Behavior$`Satisfaction Level`)
+E_commerce_Customer_Behavior$City<-as.factor(E_commerce_Customer_Behavior$City)
+E_commerce_Customer_Behavior<-E_commerce_Customer_Behavior[,-c(1,5,6,7,8,9,10,11)]
+data_plot<-E_commerce_Customer_Behavior
+save(E_commerce_Customer_Behavior,file='E_commerce.RData')
+summary(E_commerce_Customer_Behavior)
+```
+
+
+
+# Descriptive Statistics and EDA
+
+The exploration begins by investigating the distribution of customers across various age groups. Through visualizations techniques, demographic spread was uncovered, shedding light on the age composition within the customer base.
+
+
+```{r}
+##Histogram of Age
+Age_hist<-ggplot(E_commerce_Customer_Behavior,aes(x=Age))+geom_histogram(binwidth = 5,fill="skyblue",col="black")+
+  labs(title="Distribution of Age")
+Age_hist
+
+```
+From the histogram above, majority of the customers in our dataset that use e-commerce platforms are between age 30 and 40 with the fewest customers above 40.
+
+Then I proceeded to uncovering patterns within the dataset. Firstly, I started with utilizing boxplot visualizations to illustrate the distribution of total spend for males and females.These graphical representation vividly showcased the differences in spending between the two groups.
+
+```{r}
+
+## Total spend by Gender
+ggplot(E_commerce_Customer_Behavior, aes(x = Gender, y = total_spend, fill = Gender)) +
+  geom_boxplot() +
+  labs(title = "Total Spend by Gender")
+
+table_spend_gender<-E_commerce_Customer_Behavior%>% group_by(Gender) %>% summarise(avg_total_spend=mean(total_spend))
+table_spend_gender
+```
+From the boxplot and table above, we can see that on average Male spend more in purchasing items on e-commerce platforms than females based on our dataset.
+
+
+Secondly, I utilized boxplot visualizations to illustrate the distribution of total spend for different membership type.These graphical representation vividly showcased the differences in spending between the three groups.
+ 
+```{r}
+##Total spend by Membership type
+ggplot(E_commerce_Customer_Behavior, aes(x = membership_type, y = total_spend, fill = membership_type)) +
+  geom_boxplot() +
+  labs(title = "Total Spend by Membership type")
+table_spend_memtype<-E_commerce_Customer_Behavior%>% group_by(membership_type) %>% summarise(avg_total_spend=mean(total_spend))
+table_spend_memtype
+
+```
+From the boxplot and table above, we can see that customers with Gold membership on average spend more than customers with other membership type, Customers with bronze membership spend less.
+
+
+Also, I utilized boxplot visualizations to illustrate the distribution of items purchased by City.These graphical representation vividly showcased the differences in items purchased by cities.
+ 
+
+```{r}
+##Items purchased by city
+ggplot(data_plot, aes(x = City, y = items_purchased, fill = City)) +
+  geom_boxplot() +
+  labs(title = "Items purchased by City")
+
+table_item_city<-E_commerce_Customer_Behavior%>% group_by(City) %>% summarise(avg_item_purchased=mean(items_purchased))
+table_item_city
+
+```
+
+From the boxplot visualization above, we can see that customers in San Francisco purchase more items on average than customers from the other 5 cities followed by customers from Newyork, Los Angeles, Miami,Chicago with Houston's customers purchasing the least items via e-commerce platforms.
+
+
+In addition, I utilized boxplot visualizations to illustrate the distribution of total spend by City.These graphical representation vividly showcased the differences in Total spend by cities.
+
+```{r}
+##Total spend by city
+ggplot(data_plot, aes(x = City, y = total_spend, fill = City)) +
+  geom_boxplot() +
+  labs(title = "Total spend by City")
+
+table_spend_city<-E_commerce_Customer_Behavior%>% group_by(City) %>% summarise(avg_total_spend=mean(total_spend))
+table_spend_city
+
+```
+From the boxplot visualization above, we can see that customers in San Francisco spend more on average than customers from the other 5 cities followed by customers from Newyork, Los Angeles, Miami,Chicago with Houston's customers spending the least via e-commerce platforms.
+
+I also visualized the total spend by satisfaction level and as expected the satisfied customers spend more and the unsatisfied customers spend less. The boxplot below illustrates that
+
+
+```{r}
+#Total spend by satisfaction level
+ggplot(E_commerce_Customer_Behavior, aes(x = satisfaction_level, y = total_spend, fill = satisfaction_level)) +
+  geom_boxplot() +
+  labs(title = "Total spend by satisfaction level")
+
+table_spend_satlevel<-E_commerce_Customer_Behavior%>% group_by(satisfaction_level) %>% summarise(avg_total_spend=mean(total_spend))
+table_spend_satlevel
+
+
+```
+From the boxplot visualization and table we can see that on average satisfied customers tend to spend more(more than double) than unsatisfied customers
+
+In addition, satisfaction level also influences days since last purchase. I used a boxplot visualization to see if days since last purchase is influenced by satisfaction level
+
+```{r}
+#Days since last purchase by satisfaction level
+ggplot(E_commerce_Customer_Behavior, aes(x = satisfaction_level, y = days_since_last_purchase, fill = satisfaction_level)) +
+  geom_boxplot() +
+  labs(title = "Days since last purchase by satisfaction level")
+```
+From the boxplot above we can see that the more satisfied a customer is the more frequent they trade through e-commerce.
+
+
+
+
+A correlation matrix was done  to see the relationship between all the numerical variables in my dataset
+
+```{r}
+#correlation matrix
+cor(E_commerce_Customer_Behavior[, c("Age","total_spend", "items_purchased","average_rating","days_since_last_purchase")])
+#Pairwise scatterplot matrix
+ggpairs(E_commerce_Customer_Behavior[, c("Age", "total_spend", "items_purchased", "average_rating", "days_since_last_purchase")],progress=FALSE)
+
+```
+
+Lastly, on exploration, I did an analysis on age and gender
+
+
+## Age and Gender Analysis
+Visualization techniques, such as histogram and scatter plots were utilized to depict the distribution of ages across the different genders.
+I also tried to visualize total spend by age and gender and satisfaction levels by age and gender. The plot below shows that
+
+
+```{r}
+# Age and Gender distribution
+ggplot(E_commerce_Customer_Behavior, aes(x = Age, fill = Gender)) +
+  geom_histogram(binwidth = 5, position = "dodge", alpha = 0.7) +
+  labs(title = "Age Distribution by Gender", x = "Age", y = "Frequency", fill = "Gender")
+
+# Analyzing Total spend by Age and Gender
+ggplot(E_commerce_Customer_Behavior, aes(x = Age, y = total_spend, color = Gender)) +
+  geom_point(alpha = 0.6) +
+  labs(title = "Total Spend by Age and Gender", x = "Age", y = "Total Spend", color = "Gender")
+
+# Analyzing Satisfaction levels by Age and Gender
+ggplot(E_commerce_Customer_Behavior, aes(x = Age, y = satisfaction_level, color = Gender)) +
+  geom_point(alpha = 0.6) +
+  labs(title = "Satisfaction Level by Age and Gender", x = "Age", y = "Satisfaction Level", color = "Gender")
+```
+
+
+
+# METHODOLOGY
+
+## Predictive Modeling for Total Spend
+
+This project aimed to explore and predict total spend by consumers in e-commerce setting. To achieve this, a variety of predictive modeling techniques were employed, encompassing linear models, LASSO regression, k-Nearest Neighbors(KNN), and Random Forest algorithms. Each methodology was utilized to uncover distinct facets of consumer behavior and their spending patterns within the e-commerce platform.
+
+
+## Linear models
+
+Linear regression models were employed to establish a baseline prediction of total spend based on various predictor variables. This classical regression technique aimed to identify linear relationships between predictors such as age,items purchased,average rating,days since last purchase, satisfaction level, membership type, and total spend. The model's coefficients provided insights into the magnitude and direction of influence of each predictor on total spend.
+
+```{r}
+#Linear Models
+set.seed(2023)
+E_commerce_Customer_Behavior$Gender<-as.factor(ifelse(E_commerce_Customer_Behavior$Gender=='Male',1,0))
+E_commerce_Customer_Behavior$discount_applied<-as.factor(ifelse(E_commerce_Customer_Behavior$discount_applied=='TRUE',1,0))
+data_new2<-E_commerce_Customer_Behavior[,-3]
+data_new2<-data_new2[,-3]
+
+data_new2.scale<-data_new2
+data_new2.scale[,-c(1,3,4,7,9)]<-scale(data_new2.scale[,-c(1,3,4,7,9)])
+data_new2.scale$satisfaction_level <- factor(data_new2$satisfaction_level, levels = c("Unsatisfied", "Neutral", "Satisfied"), ordered = TRUE)
+data_new2.scale$membership_type <- factor(data_new2$membership_type, levels = c("Bronze", "Silver", "Gold"), ordered = TRUE)
+data_split<-sample.int(nrow(data_new2.scale),0.8*nrow(data_new2.scale))
+train_commerce<-data_new2.scale[data_split,]
+test_commerce<-data_new2.scale[-data_split,]
+
+```
+
+
+$$
+Y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \dots + \beta_p X_p + \epsilon
+$$
+
+
+
+
+## LASSO Regression
+
+LASSO regression, a form of regularized linear regression, was utilized to introduce regularization and feature selection into the modeling process. This technique aimed to minimize overfitting by penalizing irrelevant predictors, thereby identifying a subset of significant features that strongly influenced total spend. The LASSO technique's ability to shrink coefficients to zero aided in the identification of important predictors within the dataset.
+$$
+\min_{\beta_0, \beta_1, \dots, \beta_p} \left\{ \sum_{i=1}^{n} (Y_i - (\beta_0 + \beta_1 X_{i1} + \beta_2 X_{i2} + \dots + \beta_p X_{ip}))^2 + \lambda \sum_{j=1}^{p} |\beta_j| \right\}
+$$
+
+## k-Nearest Neighbors(KNN)
+
+The KNN algorithm, a non-parametric and instance-based learning approach, was employed to capture non-linear relationships between predictors and total spend. By measuring the similarity between customers based on predictor variables, KNN predicted total spend by considering the spending patterns of similar customers. This technique aimed to uncover patterns that might not be captured by linear models.
+
+
+## Random Forest
+
+The Random Forest algorithm, an ensemble learning method, was leveraged to capture complex interactions and nonlinearities within the dataset. By constructing multiple decision trees and aggregating their predictions, Random Forest aimed to provide robust predictions of total spend. Its ability to handle high-dimensional data and capture variable importance aided in understanding the key drivers of total spend. 
+
+
+
+## Satisfaction level by Membership type Analysis
+
+```{r}
+E_commerce_Customer_Behavior <- read_csv("archive (1)/E-commerce Customer Behavior.csv",show_col_types = FALSE)
+E_commerce_Customer_Behavior<-na.omit(E_commerce_Customer_Behavior)
+E_commerce_Customer_Behavior$customer_id<-E_commerce_Customer_Behavior$`Customer ID`
+E_commerce_Customer_Behavior$membership_type<-as.factor(E_commerce_Customer_Behavior$`Membership Type`)
+E_commerce_Customer_Behavior$total_spend<-E_commerce_Customer_Behavior$`Total Spend`
+E_commerce_Customer_Behavior$items_purchased<-E_commerce_Customer_Behavior$`Items Purchased`
+E_commerce_Customer_Behavior$average_rating<-E_commerce_Customer_Behavior$`Average Rating`
+E_commerce_Customer_Behavior$discount_applied<-as.factor(E_commerce_Customer_Behavior$`Discount Applied`)
+E_commerce_Customer_Behavior$days_since_last_purchase<-E_commerce_Customer_Behavior$`Days Since Last Purchase`
+E_commerce_Customer_Behavior$satisfaction_level<-as.factor(E_commerce_Customer_Behavior$`Satisfaction Level`)
+E_commerce_Customer_Behavior$City<-as.factor(E_commerce_Customer_Behavior$City)
+E_commerce_Customer_Behavior2<-E_commerce_Customer_Behavior[,-c(1,5,6,7,8,9,10,11)]
+# Grouping satisfaction levels by Membership type and visualizing
+satisfaction_by_membership <- aggregate(E_commerce_Customer_Behavior2$satisfaction_level, by = list(membership_type = E_commerce_Customer_Behavior2$membership_type), FUN = function(x) table(x))
+satisfaction_by_membership
+
+# Visualize satisfaction by Membership type
+barplot(t(as.matrix(satisfaction_by_membership[, -1])), beside = TRUE, legend.text = TRUE, col = rainbow(nrow(satisfaction_by_membership)), main = "Satisfaction Levels by Membership Type",names.arg = c('Bronze','Gold','Silver'))
+
+```
+
+
+
+
+## Chi-Square test of Independence
+
+The chi-square test of independence was conducted to assess whether satisfaction levels and membership types were independent of each other. The test aimed to determine if the observed frequencies of satisfaction levels across different membership types deviated significantly from what would be expected if the variables were unrelated.
+
+$\chi^2 = \sum \frac{(O - E)^2}{E}$
+
+Formation of Hypotheses
+
+Ho: There is no association between satisfaction levels and membership types
+
+Ha: There is an association between satisfaction levels and membership type
+
+
+## Satisfaction levels by Gender
+
+
+
+```{r}
+satisfaction_by_Gender <- aggregate(E_commerce_Customer_Behavior2$satisfaction_level, by = list(Gender = E_commerce_Customer_Behavior2$Gender), FUN = function(x) table(x))
+df<-data.frame(satisfaction_by_Gender)
+
+# Visualize satisfaction by Gender
+barplot(t(as.matrix(satisfaction_by_Gender[, -1])), beside = TRUE, legend.text = TRUE, col = rainbow(ncol(satisfaction_by_Gender)), main = "Satisfaction Levels by Gender",names.arg = c('Male','Female'))
+```
+
+
+
+## Chi-Square Test of Independence
+
+The chi-square test of independence was performed to determine if satisfaction levels and gender were independent of each other within the dataset. This test sought to discern whether the observed frequencies of satisfaction levels varied significantly across different gender categories.
+
+$\chi^2 = \sum \frac{(O - E)^2}{E}$
+
+# Formulation of Hypotheses
+
+Ho: There is no relationship between satisfaction levels and gender
+
+Ha: There is a significant relationship between satisfaction levels and gender
+
+
+
+
+
+## Discount Optimization
+
+A comparative analysis of average total spend between customers who received discounts and those who did not was conducted. Descriptive statistics such as mean was computed to discern any notable differences in spending behaviour associated with discount availability.
+
+
+
+```{r}
+discount_data <- data_new2[, c("total_spend", "discount_applied")]
+
+# Calculate average spend for different discount levels
+avg_spend_by_discount <- discount_data %>%
+  group_by(discount_applied) %>%
+  summarise(Avg_Total_spend = mean(total_spend))
+avg_spend_by_discount
+
+# Visualize average spend by discount level
+plot(avg_spend_by_discount$discount_applied, avg_spend_by_discount$Avg_Total_spend, 
+     type = "b", col = "blue", xlab = "Discount Applied (%)", ylab = "Average Total Spend",
+     main = "Average Spend by Discount Level")
+
+```
+
+# Formulation of Hypotheses
+
+Ho: There is no significant difference between average total spend and discount applied
+
+Ha: There is a significant difference between average total spend and discount applied
+
+
+## Results and Conclusion
+
+# LINEAR Model:
+
+Total_spend= 847.731 + 13.313* Age + 187.722* Items_purchased + 17.131 * average_rating -53.763 * days_since_last_purchases - 46.632 * satisfaction_level.L - 11.355 * satisfaction_level.Q + 291.756 * membership_type.L +63.064 * membership_type.Q.
+
+Interpretation:
+
+The predicted total spend will increase by 13.313 for every unit increase in age keeping all other variables constant.
+
+The predicted total spend will increase by 187.722 for every unit increase in items_purchased keeping all other variables constant
+
+and so on....
+
+
+
+
+# LASSO Model:
+
+Total_spend= 651.55 + 10.02* Age + 184.84* Items_purchased + 22.47 * average_rating -52.99 * days_since_last_purchases + 51.32 * satisfaction_level_unsatisfied + 33.02 * satisfaction_level_neutral+ 385.76* membership_type_Gold +117.35 * membership_type_silver.
+
+We can see that the lasso model has penalized some of the predictor variables from the linear regression model. Although it still keeps all the predictor variables as important for the prediction of total spend.
+
+Interpretation:
+
+The predicted total spend will increase by 10.02 for every unit increase in age keeping all other variables constant.
+
+The predicted total spend will increase by 184.84 for every unit increase in items_purchased keeping all other variables constant
+
+and so on....
+
+Table of RMSE
+
+\begin{tabular}{|c|c|} 
+    \hline 
+    Model & RMSE \\ 
+    \hline 
+    Linear Model & 25.448 \\ 
+    \hline
+    Lasso & 25.428 \\ 
+    \hline
+    KNN & 9.732 \\ 
+    \hline
+    Random Forest & 19.842 \\ 
+    \hline 
+\end{tabular}
+
+
+
+# Model Comparison
+
+Each methodology was subjected to rigorous evaluation using appropriate metrics such as Mean Squared Error. Model performance was assessed on a holdout dataset to ensure generalizability and robustness of predictions.
+
+Based on the table above, K-nearest neighbor model has the smallest test mean squared error. Hence it has the best predictive power in predicting total spend using Age,items_purchased, average_rating, days_since_last_purchase, satisfaction_level,membership_type as 
+
+The comprehensive use of multiple methodologies allowed for a holistic understanding of consumer behaviour in the e-commerce domain,unraveling various aspects of spending patterns and providing diverse insights essential for informed decision-making in marketing strategies and customer engagement initiatives.
+
+Based on the random forest model the most important predictor variable for predicting total spend is membership type which was also highlighted by the linear model and Lasso regression model.
+
+
+# Satisfaction level and membership type Chi-square Analysis:
+
+Based on the result of the chi-square test, since the $p-value <2.2*10^{-16}$ we reject $H_o$ stated above. Therefore we can conclude that there is a relationship between satisfaction levels and membership type.
+
+# Satisfaction level and Gender Chi-square Analysis:
+
+Based on the result of the chi-square test, since the $p-value=0.6361$, we cannot reject $H_o$. Therefore we conclude that there is no sufficient evidence that there is a relationship between satisfaction level and gender.
+
+# Discount Optimization:
+
+Based on the result of the Welch two sample t-test,we can conclude that there is a difference between the average total spend between discounted and non-discounted consumers since the p-value=0.001663 <0.05. Result is significant.
+
+
+# Conclusion:
+
+The extensive array of analyses conducted on the e-commerce dataset revealed multifaceted insights into consumer behavior, preferences, and the interplay of various factors influencing the platform's dynamics. Each analysis provided unique perspectives, contributing to a holistic understanding of the e-commerce landscape.
+
+The collective insights from these analyses advocate for data-driven strategies. Tailoring marketing campaigns based on segmented preferences, optimizing discount strategies, and enhancing membership benefits can augment customer engagement and satisfaction. Additionally, leveraging predictive models like Random Forest and KNN for personalized recommendations could enhance the platform's user experience and drive revenue growth.
+
+The amalgamation of analyses served as a compass, guiding strategic decision-making within the e-commerce realm. Understanding consumer behavior nuances and leveraging these insights to fine-tune strategies is pivotal in navigating the competitive landscape and fostering enduring customer relationships in the dynamic e-commerce landscape.
+
+## REFERENCES
+[1] Fu Zhi. Analysis and suggestions on consumer
+behavior in the digital e-commerce environment [J].
+National Circulation Economy, 2021(20):19-21.
+
+[2] Liu Yaya, Li Shuang, Li Xiaotong. Online shopping
+perceived risk measurement and consumer behavior
+analysis based on e-commerce data [J]. Statistics
+and Management, 2020, 35(11): 77-84.
+
+[3] Nisha Gupta, Rajiv Jain. Consumer Behaviour Towards E-commerce: Online Shopping
+
+[4] ChatGpt
+
+
+
+
+
+## APPENDIX A
+Linear Models 
+
+Call:
+
+lm(formula = total_spend ~ Age + items_purchased + average_rating + 
+    days_since_last_purchase + satisfaction_level + membership_type, 
+    data = train_commerce)
+
+Residuals:
+
+    Min      1Q  Median      3Q     Max 
+    
+-56.504 -15.888   0.526  13.527  81.256 
+
+Coefficients:
+
+                         Estimate Std. Error t value Pr(>|t|) 
+                         
+(Intercept)               847.731      1.395 607.876  < 2e-16 ***
+
+Age                        13.313      3.346   3.979 8.92e-05 ***
+
+items_purchased           187.722      5.228  35.905  < 2e-16 ***
+
+average_rating             17.131      6.361   2.693  0.00753 ** 
+
+days_since_last_purchase  -53.763      3.478 -15.460  < 2e-16 ***
+
+satisfaction_level.L      -46.632      7.755  -6.013 5.92e-09 ***
+
+satisfaction_level.Q      -11.355      5.104  -2.225  0.02694 *  
+
+membership_type.L         291.756     11.026  26.460  < 2e-16 ***
+
+membership_type.Q          63.064      4.720  13.361  < 2e-16 ***
+---
+
+Signif. codes:  0 ‘*** 0.001 ‘** 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+Residual standard error: 22.77 on 269 degrees of freedom
+
+Multiple R-squared:  0.9964,	Adjusted R-squared:  0.9963 
+
+F-statistic:  9219 on 8 and 269 DF,  p-value: < 2.2e-16
+
+
+LASSO
+
+[1] 0.1931318
+
+Call:  glmnet(x = X, y = y, alpha = 1, lambda = lasso_model$lambda.min) 
+
+  Df  %Dev Lambda
+  
+1  8 99.63 0.1931
+
+[1] 25.42767
+
+                   (Intercept)                            Age 
+                   
+                     651.55285                       10.02307 
+                     
+               items_purchased                 average_rating 
+               
+                     184.84429                       22.47269 
+                     
+      days_since_last_purchase satisfaction_level_unsatisfied 
+      
+                     -52.99426                       51.31525 
+                     
+    satisfaction_level_neutral           membership_type_Gold 
+    
+                      33.02014                      385.76343 
+                      
+        membership_type_Silver 
+        
+                     117.35361 
+                     
+                     
+KNN
+
+[1] 10.434346  8.837652  9.987994 10.610275 11.394671 11.894531
+
+ [7] 12.178718 12.458640 12.662321 13.204029 14.126918 14.817465
+ 
+[13] 15.453962 15.442314 16.852501 17.319088 17.881840 18.239195
+
+[19] 18.498166 18.744831
+
+[1] 9.731655
+
+Random Forest
+
+Call:
+
+ randomForest(x = X, y = y, ntree = 100, mtry = sqrt(ncol(X))) 
+ 
+               Type of random forest: regression
+               
+                     Number of trees: 100
+                     
+No. of variables tried at each split: 2
+
+          Mean of squared residuals: 273.7518
+          
+                    % Var explained: 99.8
+                    
+                         IncNodePurity
+                         
+Age                            2696892
+
+items_purchased                8153345
+
+average_rating                10796398
+
+days_since_last_purchase       1132165
+
+satisfaction_level             3111448
+
+membership_type               12320761
+
+[1] 19.84247
+
+Discount optimization
+
+Welch Two Sample t-test
+
+data:  discounted and non_discounted
+
+t = -3.1734, df = 300.56, p-value = 0.001663
+
+alternative hypothesis: true difference in means is not equal to 0
+
+95 percent confidence interval:
+
+ -197.23090  -46.24594
+ 
+sample estimates:
+
+mean of x mean of y 
+
+ 787.2737  909.0121 
+ 
+ Chi-square test of independence between gender and satisfaction level
+ 
+              Female Male
+              
+  Neutral         56   51
+  
+  Satisfied       58   67
+  
+  Unsatisfied     59   57
+
+	Pearson's Chi-squared test
+
+data:  contingency_table2
+
+X-squared = 0.90466, df = 2, p-value = 0.6361
+
+Satisfaction level by membership type
+
+ Bronze Gold Silver
+ 
+  Neutral         56    0     51
+  
+  Satisfied        0  117      8
+  
+  Unsatisfied     58    0     58
+
+	Pearson's Chi-squared test
+
+data:  contingency_table
+
+X-squared = 315.8, df = 4, p-value < 2.2e-19
+
+## Appendix B
+
+```{r,echo=TRUE,eval=FALSE}
+## APPENDIX B
+## R CODE
+
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(GGally)
+library(tidyverse)
+library(randomForest)#For randomforest algorithm
+library(caret)  # For cross-validation
+library(class)  # For KNN algorithm
+E_commerce_Customer_Behavior <- read_csv("archive (1)/E-commerce Customer Behavior.csv",show_col_types = FALSE)
+#removing missing data
+E_commerce_Customer_Behavior<-na.omit(E_commerce_Customer_Behavior)
+E_commerce_Customer_Behavior$customer_id<-E_commerce_Customer_Behavior$`Customer ID`
+E_commerce_Customer_Behavior$membership_type<-as.factor(E_commerce_Customer_Behavior$`Membership Type`)
+E_commerce_Customer_Behavior$total_spend<-E_commerce_Customer_Behavior$`Total Spend`
+E_commerce_Customer_Behavior$items_purchased<-E_commerce_Customer_Behavior$`Items Purchased`
+E_commerce_Customer_Behavior$average_rating<-E_commerce_Customer_Behavior$`Average Rating`
+E_commerce_Customer_Behavior$discount_applied<-as.factor(E_commerce_Customer_Behavior$`Discount Applied`)
+E_commerce_Customer_Behavior$days_since_last_purchase<-E_commerce_Customer_Behavior$`Days Since Last Purchase`
+E_commerce_Customer_Behavior$satisfaction_level<-as.factor(E_commerce_Customer_Behavior$`Satisfaction Level`)
+E_commerce_Customer_Behavior$City<-as.factor(E_commerce_Customer_Behavior$City)
+E_commerce_Customer_Behavior<-E_commerce_Customer_Behavior[,-c(1,5,6,7,8,9,10,11)]
+data_plot<-E_commerce_Customer_Behavior
+summary(E_commerce_Customer_Behavior)
+##Histogram of Age
+Age_hist<-ggplot(E_commerce_Customer_Behavior,aes(x=Age))+geom_histogram(binwidth = 5,fill="skyblue",col="black")+
+  labs(title="Distribution of Age")
+Age_hist
+## Total spend by Gender
+ggplot(E_commerce_Customer_Behavior, aes(x = Gender, y = total_spend, fill = Gender)) +
+  geom_boxplot() +
+  labs(title = "Total Spend by Gender")
+
+table_spend_gender<-E_commerce_Customer_Behavior%>% group_by(Gender) %>% summarise(avg_total_spend=mean(total_spend))
+table_spend_gender
+##Total spend by Membership type
+ggplot(E_commerce_Customer_Behavior, aes(x = membership_type, y = total_spend, fill = membership_type)) +
+  geom_boxplot() +
+  labs(title = "Total Spend by Membership type")
+table_spend_memtype<-E_commerce_Customer_Behavior%>% group_by(membership_type) %>% summarise(avg_total_spend=mean(total_spend))
+table_spend_memtype
+##Items purchased by city
+ggplot(data_plot, aes(x = City, y = items_purchased, fill = City)) +
+  geom_boxplot() +
+  labs(title = "Items purchased by City")
+
+table_item_city<-E_commerce_Customer_Behavior%>% group_by(City) %>% summarise(avg_item_purchased=mean(items_purchased))
+table_item_city
+##Total spend by city
+ggplot(data_plot, aes(x = City, y = total_spend, fill = City)) +
+  geom_boxplot() +
+  labs(title = "Total spend by City")
+
+table_spend_city<-E_commerce_Customer_Behavior%>% group_by(City) %>% summarise(avg_total_spend=mean(total_spend))
+table_spend_city
+#Total spend by satisfaction level
+ggplot(E_commerce_Customer_Behavior, aes(x = satisfaction_level, y = total_spend, fill = satisfaction_level)) +
+  geom_boxplot() +
+  labs(title = "Total spend by satisfaction level")
+
+table_spend_satlevel<-E_commerce_Customer_Behavior%>% group_by(satisfaction_level) %>% summarise(avg_total_spend=mean(total_spend))
+table_spend_satlevel
+#Days since last purchase by satisfaction level
+ggplot(E_commerce_Customer_Behavior, aes(x = satisfaction_level, y = days_since_last_purchase, fill = satisfaction_level)) +
+  geom_boxplot() +
+  labs(title = "Days since last purchase by satisfaction level")
+#correlation matrix
+cor(E_commerce_Customer_Behavior[, c("Age","total_spend", "items_purchased","average_rating","days_since_last_purchase")])
+#Pairwise scatterplot matrix
+ggpairs(E_commerce_Customer_Behavior[, c("Age", "total_spend", "items_purchased", "average_rating", "days_since_last_purchase")],progress=FALSE)
+# Age and Gender distribution
+ggplot(E_commerce_Customer_Behavior2, aes(x = Age, fill = Gender)) +
+  geom_histogram(binwidth = 5, position = "dodge", alpha = 0.7) +
+  labs(title = "Age Distribution by Gender", x = "Age", y = "Frequency", fill = "Gender")
+
+# Analyzing Total spend by Age and Gender
+ggplot(E_commerce_Customer_Behavior2, aes(x = Age, y = total_spend, color = Gender)) +
+  geom_point(alpha = 0.6) +
+  labs(title = "Total Spend by Age and Gender", x = "Age", y = "Total Spend", color = "Gender")
+
+# Analyzing Satisfaction levels by Age and Gender
+ggplot(E_commerce_Customer_Behavior2, aes(x = Age, y = satisfaction_level, color = Gender)) +
+  geom_point(alpha = 0.6) +
+  labs(title = "Satisfaction Level by Age and Gender", x = "Age", y = "Satisfaction Level", color = "Gender")
+#Linear Models
+set.seed(2023)
+E_commerce_Customer_Behavior$Gender<-as.factor(ifelse(E_commerce_Customer_Behavior$Gender=='Male',1,0))
+E_commerce_Customer_Behavior$discount_applied<-as.factor(ifelse(E_commerce_Customer_Behavior$discount_applied=='TRUE',1,0))
+data_new2<-E_commerce_Customer_Behavior[,-3]
+data_new2<-data_new2[,-3]
+
+data_new2.scale<-data_new2
+data_new2.scale[,-c(1,3,4,7,9)]<-scale(data_new2.scale[,-c(1,3,4,7,9)])
+data_new2.scale$satisfaction_level <- factor(data_new2$satisfaction_level, levels = c("Unsatisfied", "Neutral", "Satisfied"), ordered = TRUE)
+data_new2.scale$membership_type <- factor(data_new2$membership_type, levels = c("Bronze", "Silver", "Gold"), ordered = TRUE)
+data_split<-sample.int(nrow(data_new2.scale),0.8*nrow(data_new2.scale))
+train_commerce<-data_new2.scale[data_split,]
+test_commerce<-data_new2.scale[-data_split,]
+#fitting a linear model 
+model<-lm(total_spend~Age+items_purchased+average_rating+days_since_last_purchase
+          +satisfaction_level+membership_type,data=train_commerce)
+summary(model)
+#predicting on the test set
+prediction<-predict(model,newdata=test_commerce)
+#finding rmse
+rmse<-sqrt(mean((prediction-test_commerce$total_spend)^2))
+rmse
+
+#Lasso
+library(glmnet)
+set.seed(2023)
+data_new2.scale$satisfaction_level_unsatisfied<-ifelse(data_new2.scale$satisfaction_level=='Unsatisfied',1,0)
+data_new2.scale$satisfaction_level_neutral<-ifelse(data_new2.scale$satisfaction_level=='Neutral',1,0)
+
+data_new2.scale$membership_type_Gold <- ifelse(data_new2.scale$membership_type=='Gold',1,0)
+data_new2.scale$membership_type_Silver <- ifelse(data_new2.scale$membership_type=='Silver',1,0)
+
+data_split<-sample.int(nrow(data_new2.scale),0.8*nrow(data_new2.scale))
+train_commerce<-data_new2.scale[data_split,]
+test_commerce<-data_new2.scale[-data_split,]
+
+# Extract predictors (features) and target variable
+X <- as.matrix(train_commerce[, c("Age", "items_purchased", "average_rating", "days_since_last_purchase", "satisfaction_level_unsatisfied",
+                        "satisfaction_level_neutral","membership_type_Gold","membership_type_Silver")])
+y <- train_commerce$total_spend
+
+# Fit LASSO regression model using cross-validation to find optimal lambda
+lasso_model <- cv.glmnet(X, y, alpha = 1)  # Set alpha = 1 for LASSO
+
+# View the optimal lambda value selected by cross-validation
+print(lasso_model$lambda.min)  # The lambda value that minimizes the cross-validated error
+
+# Fit LASSO model using the optimal lambda
+lasso_fit <- glmnet(X, y, alpha = 1, lambda = lasso_model$lambda.min)
+
+# Summary of the LASSO model
+print(lasso_fit)
+test_x<-as.matrix(test_commerce[, c("Age", "items_purchased", "average_rating", "days_since_last_purchase", "satisfaction_level_unsatisfied",
+                        "satisfaction_level_neutral","membership_type_Gold","membership_type_Silver")])
+
+prediction3<-predict(lasso_fit,newx=test_x)
+rmse<-sqrt(mean((prediction3-test_commerce$total_spend)^2))
+rmse
+# Get coefficients from the fitted LASSO model
+lasso_coefficients <- coef(lasso_fit)
+
+# Extract non-zero coefficients (non-zero indicates important predictors)
+important_predictors <- lasso_coefficients[,1][lasso_coefficients[,1] != 0]
+
+# Display important predictors and their coefficients
+print(important_predictors)
+
+#KNN
+set.seed(2023)
+
+# Extracting features (including encoded variables) and target variable
+X <- train_commerce[, c("Age", "items_purchased", "average_rating", "days_since_last_purchase", "satisfaction_level_unsatisfied",
+                        "satisfaction_level_neutral","membership_type_Gold","membership_type_Silver")]
+y <- train_commerce$total_spend
+
+
+
+# Creating a training control for cross-validation
+train_control <- trainControl(method = "cv", number = 5)  # 5-fold cross-validation
+
+# Define the range of k values to evaluate
+k_range <- seq(1, 20, by = 1)  # Evaluate k values from 1 to 20
+
+# Perform cross-validated KNN model fitting for different k values
+knn_model <- train(x = X, y = y, method = "knn", trControl = train_control, tuneGrid = data.frame(k = k_range))
+
+# View the best performing k
+print(knn_model$bestTune)
+
+# View the cross-validation results for different k values
+print(knn_model$results$RMSE)
+#pREDICTING Using the test set
+prediction2<-predict(knn_model,newdata=test_commerce)
+#Finding rmse
+rmse<-sqrt(mean((prediction2-test_commerce$total_spend)^2))
+rmse
+
+##Random Forest
+set.seed(2023)
+
+
+
+X <- train_commerce[, c("Age", "items_purchased", "average_rating", "days_since_last_purchase", "satisfaction_level","membership_type")]
+y <- train_commerce$total_spend
+
+
+# Train the Random Forest model
+rf_model <- randomForest(x = X, y = y, ntree = 100, mtry = sqrt(ncol(X)))
+
+# View the summary of the Random Forest model
+print(rf_model)
+importance(rf_model)
+
+#Predicting on the test set
+predictions3 <- predict(rf_model,newdata=test_commerce)
+#finding rmse
+rmse<-sqrt(mean((predictions3-test_commerce$total_spend)^2))
+rmse
+# Satisfaction level by membership type analysis
+E_commerce_Customer_Behavior <- read_csv("archive (1)/E-commerce Customer Behavior.csv",show_col_types = FALSE)
+E_commerce_Customer_Behavior<-na.omit(E_commerce_Customer_Behavior)
+E_commerce_Customer_Behavior$customer_id<-E_commerce_Customer_Behavior$`Customer ID`
+E_commerce_Customer_Behavior$membership_type<-as.factor(E_commerce_Customer_Behavior$`Membership Type`)
+E_commerce_Customer_Behavior$total_spend<-E_commerce_Customer_Behavior$`Total Spend`
+E_commerce_Customer_Behavior$items_purchased<-E_commerce_Customer_Behavior$`Items Purchased`
+E_commerce_Customer_Behavior$average_rating<-E_commerce_Customer_Behavior$`Average Rating`
+E_commerce_Customer_Behavior$discount_applied<-as.factor(E_commerce_Customer_Behavior$`Discount Applied`)
+E_commerce_Customer_Behavior$days_since_last_purchase<-E_commerce_Customer_Behavior$`Days Since Last Purchase`
+E_commerce_Customer_Behavior$satisfaction_level<-as.factor(E_commerce_Customer_Behavior$`Satisfaction Level`)
+E_commerce_Customer_Behavior$City<-as.factor(E_commerce_Customer_Behavior$City)
+E_commerce_Customer_Behavior2<-E_commerce_Customer_Behavior[,-c(1,5,6,7,8,9,10,11)]
+# Grouping satisfaction levels by Membership type and visualizing
+satisfaction_by_membership <- aggregate(E_commerce_Customer_Behavior2$satisfaction_level, by = list(membership_type = E_commerce_Customer_Behavior2$membership_type), FUN = function(x) table(x))
+satisfaction_by_membership
+
+# Visualize satisfaction by Membership type
+barplot(t(as.matrix(satisfaction_by_membership[, -1])), beside = TRUE, legend.text = TRUE, col = rainbow(nrow(satisfaction_by_membership)), main = "Satisfaction Levels by Membership Type",names.arg = c('Bronze','Gold','Silver'))
+
+#chi-square test of independence
+
+# Create a contingency table
+contingency_table <- table(E_commerce_Customer_Behavior2$satisfaction_level, E_commerce_Customer_Behavior2$membership_type)
+print(contingency_table)
+
+# Perform chi-square test
+chi_square <- chisq.test(contingency_table)
+print(chi_square)
+#satisfaction level by gender
+
+satisfaction_by_Gender <- aggregate(E_commerce_Customer_Behavior2$satisfaction_level, by = list(Gender = E_commerce_Customer_Behavior2$Gender), FUN = function(x) table(x))
+df<-data.frame(satisfaction_by_Gender)
+
+# Visualize satisfaction by Gender
+barplot(t(as.matrix(satisfaction_by_Gender[, -1])), beside = TRUE, legend.text = TRUE, col = rainbow(ncol(satisfaction_by_Gender)), main = "Satisfaction Levels by Gender",names.arg = c('Male','Female'))
+
+#chisquare test of independence
+contingency_table2 <- table(E_commerce_Customer_Behavior2$satisfaction_level, E_commerce_Customer_Behavior2$Gender)
+print(contingency_table2)
+
+# Perform chi-square test
+chi_square <- chisq.test(contingency_table2)
+print(chi_square)
+
+#Discount optimization
+discount_data <- data_new2[, c("total_spend", "discount_applied")]
+
+# Calculate average spend for different discount levels
+avg_spend_by_discount <- discount_data %>%
+  group_by(discount_applied) %>%
+  summarise(Avg_Total_spend = mean(total_spend))
+avg_spend_by_discount
+
+# Visualize average spend by discount level
+plot(avg_spend_by_discount$discount_applied, avg_spend_by_discount$Avg_Total_spend, 
+     type = "b", col = "blue", xlab = "Discount Applied (%)", ylab = "Average Total Spend",
+     main = "Average Spend by Discount Level")
+
+# Subsetting data for customers who received discounts and those who didn't
+discounted <- data_new2$total_spend[data_new2$discount_applied == 1]
+non_discounted <- data_new2$total_spend[data_new2$discount_applied == 0]
+
+# Performing t-test for difference in means
+t_test_result <- t.test(discounted, non_discounted)
+
+# View the t-test result
+print(t_test_result)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
